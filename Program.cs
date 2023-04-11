@@ -1,4 +1,6 @@
-﻿using MoreLinq;
+﻿using System.Text.Json;
+using System.Text.Json.Serialization;
+using MoreLinq;
 using WordleSolver.Guessers;
 
 namespace WordleSolver;
@@ -15,7 +17,8 @@ internal static class Program
 		var possibleGuesses = LoadWordsFromFile(PossibleGuessesFileName, WordLength);
 		var possibleSolutions = LoadWordsFromFile(PossibleSolutionsFileName, WordLength);
 
-		await MultipleGames(possibleGuesses, possibleSolutions);
+		// await MultipleGames(possibleGuesses, possibleSolutions);
+		await OptimalStartingWords(possibleGuesses, possibleSolutions);
 	}
 
 	private static List<string> LoadWordsFromFile(
@@ -64,7 +67,7 @@ internal static class Program
 
 		var allGuessResults = new List<IEnumerable<string>>();
 
-		foreach (var answer in possibleSolutions.TakeEvery(200))
+		foreach (var answer in possibleSolutions.TakeEvery(25))
 		{
 			var guesses = await Solver.Play(entropyGuesser, possibleGuesses, possibleSolutions, answer);
 			answerToNumGuesses.Add(answer, guesses.Count);
@@ -78,6 +81,44 @@ internal static class Program
 		Console.WriteLine($"guess #3: {allGuessResults[2].MostFrequent()}");
 		Console.WriteLine($"guess #4: {allGuessResults[3].MostFrequent()}");
 		Console.WriteLine($"guess #5: {allGuessResults[4].MostFrequent()}");
+	}
+
+	private static async Task OptimalStartingWords(IEnumerable<string> possibleGuesses, List<string> possibleSolutions)
+	{
+		var allGuessResults = new Dictionary<IEnumerable<string>, (int occurances, int wordsLeft)>();
+
+		var subsets = possibleGuesses.GetDifferentCombinations(3).ToList();
+
+		await File.WriteAllTextAsync("c:/temp/subsets.txt",JsonSerializer.Serialize(subsets));
+
+		foreach (var word in possibleSolutions)
+		{
+			var (guesses, wordsLeft) = await Solver.SolutionsAfterThreeGuesses(subsets, possibleSolutions, word);
+
+			if (!allGuessResults.ContainsKey(guesses))
+			{
+				allGuessResults[guesses] = (1, wordsLeft);
+			}
+			else
+			{
+				var temp = allGuessResults[guesses];
+				temp.occurances++;
+				temp.wordsLeft += wordsLeft;
+				allGuessResults[guesses] = temp;
+			}
+		}
+
+		var averageGuesses = allGuessResults
+			.ToDictionary(
+				kvp => kvp.Key.ToArray(),
+				kvp => (double) kvp.Value.wordsLeft / kvp.Value.occurances);
+
+		var minGuesses = Enumerable.MinBy(averageGuesses, kvp => kvp.Value);
+
+		Console.WriteLine($"average number of words left: {minGuesses.Value}");
+		Console.WriteLine($"guess #1: {string.Join(", ", minGuesses.Key[0])}");
+		Console.WriteLine($"guess #2: {string.Join(", ", minGuesses.Key[1])}");
+		Console.WriteLine($"guess #3: {string.Join(", ", minGuesses.Key[2])}");
 	}
 
 	private static void AddResultsToGuessResults(

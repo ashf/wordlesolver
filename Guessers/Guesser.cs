@@ -8,8 +8,8 @@ public abstract class Guesser
         IReadOnlyList<string> possibleGuesses,
         IList<string> possibleSolutions,
         IReadOnlySet<char> reds,
-        IList<char> greens,
-        IReadOnlyDictionary<char, List<bool>> yellows);
+        char[] greens,
+        IReadOnlyDictionary<char, bool[]> yellows);
 
     protected internal static GuessResult[] EvaluateGuess(string guess, string answer)
     {

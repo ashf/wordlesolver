@@ -32,24 +32,4 @@ public static class GuessResultExtensions
 
         return sb.ToString();
     }
-
-    public static void Print(this GuessResult[] hint, string guess)
-    {
-        for (var index = 0; index < guess.Length; index++)
-        {
-            var color = hint[index] switch
-            {
-                GuessResult.Correct => ConsoleColor.Green,
-                GuessResult.DoesNotExist => ConsoleColor.Red,
-                GuessResult.ExistsInDifferentSpot => ConsoleColor.Yellow,
-                _ => throw new ArgumentOutOfRangeException(nameof(hint), hint, null)
-            };
-
-            Console.ForegroundColor = color;
-            Console.Write(guess[index]);
-        }
-
-        Console.WriteLine();
-        Console.ResetColor();
-    }
 }

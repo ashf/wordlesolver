@@ -8,8 +8,8 @@ public class EntropyGuesser : Guesser
         IReadOnlyList<string> possibleGuesses,
         IList<string> possibleSolutions,
         IReadOnlySet<char> reds,
-        IList<char> greens,
-        IReadOnlyDictionary<char, List<bool>> yellows)
+        char[] greens,
+        IReadOnlyDictionary<char, bool[]> yellows)
     {
         if (possibleSolutions.Count > 2)
         {

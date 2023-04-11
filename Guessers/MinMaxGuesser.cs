@@ -10,8 +10,8 @@ public class MinMaxGuesser : Guesser
         IReadOnlyList<string> possibleGuesses,
         IList<string> possibleSolutions,
         IReadOnlySet<char> reds,
-        IList<char> greens,
-        IReadOnlyDictionary<char, List<bool>> yellows)
+        char[] greens,
+        IReadOnlyDictionary<char, bool[]> yellows)
     {
         var semaphore = new Semaphore(0, 1);
         semaphore.Release();
@@ -80,31 +80,31 @@ public class MinMaxGuesser : Guesser
     }
 
     private static int FilteredWordListSize(
-        IReadOnlySet<char> reds,
+        ISet<char> reds,
         IList<char> greens,
-        IReadOnlyDictionary<char, List<bool>> yellows,
+        IReadOnlyDictionary<char, bool[]> yellows,
         IEnumerable<string> wordList)
     {
-        return wordList.Count(word => Solver.IsWordPossible(word.ToCharArray(), reds, greens, yellows));
+        return wordList.Count(word => Solver.IsWordPossible(word.ToCharArray(), reds, greens, yellows, true));
     }
 
-    private static (HashSet<char> reds, IList<char> greens, IReadOnlyDictionary<char, List<bool>> yellows) UpdateKnowns(
+    private static (HashSet<char> reds, IList<char> greens, IReadOnlyDictionary<char, bool[]> yellows) UpdateKnowns(
         IReadOnlyList<GuessResult> hint,
         string guess,
         IEnumerable<char> reds,
-        IEnumerable<char> greens,
-        IReadOnlyDictionary<char, List<bool>> yellows)
+        char[] greens,
+        IReadOnlyDictionary<char, bool[]> yellows)
     {
         var newReds = new HashSet<char>(reds);
-        var newGreens = new List<char>(greens);
+        var newGreens = greens.Clone() as char[];
         var newYellows = yellows.ToDictionary(x =>
             x.Key,
-            x => new List<bool>(x.Value))
+            x => x.Value.Clone() as bool[])
             .AsReadOnly();
 
-        Solver.UpdateKnownsInplace(hint, guess, newReds, newGreens, newYellows);
+        Solver.UpdateKnownsInplace(guess, hint, newReds, newGreens!, newYellows!);
 
-        return (newReds, newGreens, newYellows);
+        return (newReds, newGreens!, newYellows!);
     }
 
     private static void PrintProgress(IReadOnlyCollection<bool> progress)
