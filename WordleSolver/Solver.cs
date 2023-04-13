@@ -181,9 +181,9 @@ public static class Solver
         Console.WriteLine($" {progress.Count(x => x)} / {progress.Count} : {additionalInfo}");
     }
 
-    public static (HashSet<string> combo, double wordsLeft) MinAverageSolutionsAfterThreeGuesses(
+    public static (GuessCombination combo, double wordsLeft) MinAverageSolutionsAfterThreeGuesses(
         IEnumerable<string> possibleSolutions,
-        List<HashSet<string>> combinations,
+        List<GuessCombination> combinations,
         string seedWord,
         int solutionsToTry)
     {
@@ -191,9 +191,10 @@ public static class Solver
 
         var progress = Enumerable.Repeat(false, solutionsToTry).ToArray();
 
-        var guessesToWordsLeft = new Dictionary<HashSet<string>, int>(new StringSetComparer());
-
         var possibleSolutionsToWorkOn = possibleSolutions.Take(solutionsToTry).ToList();
+
+        var guessesToWordsLeft = new Dictionary<GuessCombination, int>(solutionsToTry);
+
         for (var index = 0; index < solutionsToTry; index++)
         {
             var word = possibleSolutionsToWorkOn[index];
@@ -231,9 +232,9 @@ public static class Solver
         return MinAverageGuesses(solutionsToTry, guessesToWordsLeft);
     }
 
-    private static (HashSet<string> guesses, double averageWordsLeft) MinAverageGuesses(
+    private static (GuessCombination guesses, double averageWordsLeft) MinAverageGuesses(
         int solutionsToTry,
-        Dictionary<HashSet<string>,int> guessesToWordsLeft)
+        Dictionary<GuessCombination,int> guessesToWordsLeft)
     {
         var kvp = guessesToWordsLeft.ToDictionary(
                 kvp => kvp.Key,
@@ -243,8 +244,8 @@ public static class Solver
         return (kvp.Key, kvp.Value);
     }
 
-    private static IEnumerable<(HashSet<string> guesses, int wordsLeft)> SolutionsAfterThreeGuesses(
-        IEnumerable<HashSet<string>> possibleGuessesCombinations,
+    private static IEnumerable<(GuessCombination guesses, int wordsLeft)> SolutionsAfterThreeGuesses(
+        IEnumerable<GuessCombination> possibleGuessesCombinations,
         HashSet<string> possibleSolutions,
         string solution,
         string seedWord)
@@ -277,7 +278,8 @@ public static class Solver
                 var localReds = new HashSet<char>(reds);
                 var localYellows = new Dictionary<char, bool[]>(yellows);
 
-                var nonSeedWordGuesses = possibleGuessesCombination.Where(guess => guess != seedWord);
+                var nonSeedWordGuesses = possibleGuessesCombination.PossibleGuesses
+                    .Where(guess => guess != seedWord);
 
                 foreach (var guess in nonSeedWordGuesses)
                 {

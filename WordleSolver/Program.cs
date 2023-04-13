@@ -107,11 +107,11 @@ internal static class Program
 	{
 		var combinationsFile = $"combinations/combinations_{seedWord}.txt";
 
-		List<HashSet<string>>? combinations;
+		List<HashSet<string>>? combinationsAsSet;
 
 		if (File.Exists(combinationsFile))
 		{
-			combinations = JsonSerializer.Deserialize<List<HashSet<string>>>(await File.ReadAllTextAsync(combinationsFile));
+			combinationsAsSet = JsonSerializer.Deserialize<List<HashSet<string>>>(await File.ReadAllTextAsync(combinationsFile));
 		}
 		else
 		{
@@ -124,18 +124,20 @@ internal static class Program
 
 			Console.WriteLine($"{possibleGuesses.Count} possible guesses filtered (no duplicate letters)");
 
-			combinations = possibleGuesses.GetDifferentCombinations(2, seedWord).ToList();
+			combinationsAsSet = possibleGuesses.GetDifferentCombinations(2, seedWord).ToList();
 
-			await File.WriteAllTextAsync(combinationsFile, JsonSerializer.Serialize(combinations));
+			await File.WriteAllTextAsync(combinationsFile, JsonSerializer.Serialize(combinationsAsSet));
 		}
 
-		Console.WriteLine($"{combinations!.Count} combinations that have no shared letters");
+		var combination = combinationsAsSet!.Select(x => new GuessCombination(x)).ToList();
+
+		Console.WriteLine($"{combination.Count} combinations that have no shared letters");
 
 		var solutionsToTry = possibleSolutions.Count;
 
 		var stopwatch = Stopwatch.StartNew();
 
-		var foo = Solver.MinAverageSolutionsAfterThreeGuesses(possibleSolutions, combinations, seedWord, solutionsToTry);
+		var foo = Solver.MinAverageSolutionsAfterThreeGuesses(possibleSolutions, combination, seedWord, solutionsToTry);
 
 		var elapsed = stopwatch.Elapsed;
 
@@ -169,23 +171,5 @@ internal static class Program
 			.OrderByDescending(g => g.Count())
 			.Select(g => g.Key)
 			.First();
-	}
-}
-
-internal class StringSetComparer : IEqualityComparer<HashSet<string>>
-{
-	public bool Equals(HashSet<string> x, HashSet<string> y)
-	{
-		return x.SequenceEqual(y);
-	}
-
-	public int GetHashCode(HashSet<string> obj)
-	{
-		var hashcode = new HashCode();
-		foreach (var t in obj)
-		{
-			hashcode.Add(t.GetHashCode());
-		}
-		return hashcode.ToHashCode();
 	}
 }
