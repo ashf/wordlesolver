@@ -22,4 +22,8 @@
     </None>
   </ItemGroup>
 
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <Exec Command="mkdir $(ProjectDir)$(OutDir)combinations\&#xA;copy $(ProjectDir)combinations\* $(ProjectDir)$(OutDir)combinations\" />
+  </Target>
+
 </Project>

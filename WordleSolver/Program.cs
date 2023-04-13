@@ -105,7 +105,7 @@ internal static class Program
 
 	private static async Task OptimalStartingWords(string seedWord, HashSet<string> possibleGuesses, IReadOnlyCollection<string> possibleSolutions)
 	{
-		var combinationsFile = $"c:/temp/combinations_{seedWord}.txt";
+		var combinationsFile = $"combinations/combinations_{seedWord}.txt";
 
 		List<HashSet<string>>? combinations;
 
