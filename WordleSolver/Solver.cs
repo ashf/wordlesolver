@@ -193,7 +193,12 @@ public static class Solver
 
         var possibleSolutionsToWorkOn = possibleSolutions.Take(solutionsToTry).ToList();
 
-        var guessesToWordsLeft = new Dictionary<GuessCombination, int>(solutionsToTry);
+        // preallocate the dictionary to reduce key look up later on
+        var guessesToWordsLeft = new Dictionary<GuessCombination, int>();
+        foreach (var combination in combinations)
+        {
+            guessesToWordsLeft[combination] = 0;
+        }
 
         for (var index = 0; index < solutionsToTry; index++)
         {
@@ -203,14 +208,7 @@ public static class Solver
 
             foreach (var result in results)
             {
-                if (!guessesToWordsLeft.ContainsKey(result.guesses))
-                {
-                    guessesToWordsLeft[result.guesses] = result.wordsLeft;
-                }
-                else
-                {
-                    guessesToWordsLeft[result.guesses] += result.wordsLeft;
-                }
+                guessesToWordsLeft[result.guesses] += result.wordsLeft;
             }
 
             progress[index] = true;
@@ -236,7 +234,9 @@ public static class Solver
         int solutionsToTry,
         Dictionary<GuessCombination,int> guessesToWordsLeft)
     {
-        var kvp = guessesToWordsLeft.ToDictionary(
+        var kvp = guessesToWordsLeft
+            .Where(kvp => kvp.Value != 0)
+            .ToDictionary(
                 kvp => kvp.Key,
                 kvp => (double) kvp.Value / solutionsToTry)
             .MinBy(kvp => kvp.Value);
