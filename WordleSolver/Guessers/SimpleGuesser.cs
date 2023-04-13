@@ -5,10 +5,9 @@ public class SimpleGuesser : Guesser
     public override string Name => nameof(SimpleGuesser);
 
     public override async Task<string> Guess(
-        IReadOnlyList<string> possibleGuesses,
-        IList<string> possibleSolutions,
+        HashSet<string> possibleGuesses,
+        HashSet<string> possibleSolutions,
         IReadOnlySet<char> reds,
-        char[] greens,
         IReadOnlyDictionary<char, bool[]> yellows)
     {
         var scores = Enumerable.Repeat(int.MinValue, possibleGuesses.Count).ToArray();
@@ -25,6 +24,6 @@ public class SimpleGuesser : Guesser
 
         var bestAverageWordIndex = Array.IndexOf(scores, scores.Max());
 
-        return possibleGuesses[bestAverageWordIndex];
+        return possibleGuesses.ElementAt(bestAverageWordIndex);
     }
 }

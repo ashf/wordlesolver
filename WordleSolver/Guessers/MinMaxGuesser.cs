@@ -1,5 +1,3 @@
-using MoreLinq;
-
 namespace WordleSolver.Guessers;
 
 public class MinMaxGuesser : Guesser
@@ -7,10 +5,9 @@ public class MinMaxGuesser : Guesser
     public override string Name => nameof(MinMaxGuesser);
 
     public override async Task<string> Guess(
-        IReadOnlyList<string> possibleGuesses,
-        IList<string> possibleSolutions,
+        HashSet<string> possibleGuesses,
+        HashSet<string> possibleSolutions,
         IReadOnlySet<char> reds,
-        char[] greens,
         IReadOnlyDictionary<char, bool[]> yellows)
     {
         var semaphore = new Semaphore(0, 1);
@@ -36,8 +33,8 @@ public class MinMaxGuesser : Guesser
                     {
                         var hint = EvaluateGuess(guess, actual);
 
-                        var (newReds, newGreens, newYellows) = UpdateKnowns(hint, guess, reds, greens, yellows);
-                        var score = FilteredWordListSize(newReds, newGreens, newYellows, possibleSolutions);
+                        var (newReds, newYellows) = UpdateKnowns(hint, guess, reds, yellows);
+                        var score = FilteredWordListSize(newReds, newYellows, possibleSolutions);
                         if (score == 0)
                         {
                             score = possibleSolutions.Count;
@@ -76,50 +73,30 @@ public class MinMaxGuesser : Guesser
             }
         }
 
-        return possibleGuesses[bestGuess.Index];
+        return possibleGuesses.ElementAt(bestGuess.Index);
     }
 
     private static int FilteredWordListSize(
         ISet<char> reds,
-        IList<char> greens,
         IReadOnlyDictionary<char, bool[]> yellows,
         IEnumerable<string> wordList)
     {
-        return wordList.Count(word => Solver.IsWordPossible(word.ToCharArray(), reds, greens, yellows, true));
+        return wordList.Count(word => Solver.IsWordPossible(word, reds, yellows, true));
     }
 
-    private static (HashSet<char> reds, IList<char> greens, IReadOnlyDictionary<char, bool[]> yellows) UpdateKnowns(
+    private static (HashSet<char> reds, IReadOnlyDictionary<char, bool[]> yellows) UpdateKnowns(
         IReadOnlyList<GuessResult> hint,
         string guess,
         IEnumerable<char> reds,
-        char[] greens,
         IReadOnlyDictionary<char, bool[]> yellows)
     {
         var newReds = new HashSet<char>(reds);
-        var newGreens = greens.Clone() as char[];
         var newYellows = yellows.ToDictionary(x =>
             x.Key,
-            x => x.Value.Clone() as bool[])
-            .AsReadOnly();
+            x => x.Value.Clone() as bool[]);
 
-        Solver.UpdateKnownsInplace(guess, hint, newReds, newGreens!, newYellows!);
+        Solver.UpdateKnownsInplace(guess, hint, ref newReds, ref newYellows!);
 
-        return (newReds, newGreens!, newYellows!);
-    }
-
-    private static void PrintProgress(IReadOnlyCollection<bool> progress)
-    {
-        var binSize = progress.Count / 20;
-
-        progress.Batch(binSize).ForEach(bin =>
-        {
-            var color = bin.All(x => x) ? ConsoleColor.Green : ConsoleColor.Red;
-            Console.ForegroundColor = color;
-            Console.Write("█");
-        });
-        Console.ResetColor();
-
-        Console.WriteLine($"{progress.Count(x => x)} / {progress.Count}");
-        Console.WriteLine();
+        return (newReds, newYellows!);
     }
 }

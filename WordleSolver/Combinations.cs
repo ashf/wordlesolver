@@ -29,7 +29,7 @@ public static class Combinations
         return true;
     }
 
-    public static IEnumerable<T[]> GetDifferentCombinations<T>(this IEnumerable<T> c, int count)
+    public static IEnumerable<HashSet<string>> GetDifferentCombinations(this IEnumerable<string> c, int count, string seedWord)
     {
         var collection = c.ToList();
         var listCount = collection.Count;
@@ -41,10 +41,37 @@ public static class Combinations
 
         do
         {
-            yield return indexes.Select(i => collection[i]).ToArray();
+            var combination = indexes.Select(i => collection[i]).ToHashSet();
+            var result = AddSeedWordAndCheckForDuplicateLetters(combination, seedWord);
+            if (result is not null)
+            {
+                yield return result;
+            }
 
             SetIndexes(indexes, indexes.Length - 1, listCount);
         }
         while (!AllPlacesChecked(indexes, listCount));
+    }
+
+    private static HashSet<string>? AddSeedWordAndCheckForDuplicateLetters(HashSet<string> combination, string seedWord)
+    {
+        combination.Add(seedWord);
+
+        var duplicateLetters = false;
+        for (var i = 0; i < combination.Count - 1; i++)
+        {
+            var word = combination.ElementAt(i);
+            duplicateLetters = combination.Where(otherWord => word != otherWord)
+                .Any(otherWord =>
+                    word.Intersect(otherWord)
+                        .Any());
+
+            if (duplicateLetters)
+            {
+                break;
+            }
+        }
+
+        return duplicateLetters ? null : combination;
     }
 }

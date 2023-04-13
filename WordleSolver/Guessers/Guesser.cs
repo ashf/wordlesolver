@@ -5,10 +5,9 @@ public abstract class Guesser
     public abstract string Name { get; }
 
     public abstract Task<string> Guess(
-        IReadOnlyList<string> possibleGuesses,
-        IList<string> possibleSolutions,
+        HashSet<string> possibleGuesses,
+        HashSet<string> possibleSolutions,
         IReadOnlySet<char> reds,
-        char[] greens,
         IReadOnlyDictionary<char, bool[]> yellows);
 
     protected internal static GuessResult[] EvaluateGuess(string guess, string answer)

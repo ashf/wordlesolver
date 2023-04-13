@@ -5,10 +5,9 @@ public class EntropyGuesser : Guesser
     public override string Name => nameof(EntropyGuesser);
 
     public override async Task<string> Guess(
-        IReadOnlyList<string> possibleGuesses,
-        IList<string> possibleSolutions,
+        HashSet<string> possibleGuesses,
+        HashSet<string> possibleSolutions,
         IReadOnlySet<char> reds,
-        char[] greens,
         IReadOnlyDictionary<char, bool[]> yellows)
     {
         if (possibleSolutions.Count > 2)
@@ -19,7 +18,7 @@ public class EntropyGuesser : Guesser
         }
 
         var randgen = new Random();
-        return possibleSolutions[randgen.Next(0, possibleSolutions.Count)];
+        return possibleSolutions.ElementAt(randgen.Next(0, possibleSolutions.Count));
     }
 
     private static string WordWithMaxEntropy(IEnumerable<(string word, double entropy)> entropies)
