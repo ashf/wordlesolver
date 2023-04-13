@@ -8,6 +8,7 @@ public class SimpleGuesser : Guesser
         HashSet<string> possibleGuesses,
         HashSet<string> possibleSolutions,
         IReadOnlySet<char> reds,
+        char[] greens,
         IReadOnlyDictionary<char, bool[]> yellows)
     {
         var scores = Enumerable.Repeat(int.MinValue, possibleGuesses.Count).ToArray();

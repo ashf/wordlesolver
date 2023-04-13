@@ -16,6 +16,7 @@ public static class Solver
 
         // init knowns
         var reds = new HashSet<char>();
+        var greens = Enumerable.Repeat('-', solution.Length).ToArray();
         var yellows = new Dictionary<char, bool[]>();
         for (var c = 'a'; c <= 'z'; c++)
         {
@@ -39,6 +40,7 @@ public static class Solver
                 possibleGuesses,
                 possibleSolutions,
                 reds,
+                greens,
                 yellows,
                 updatePossibleGuesses: false);
 
@@ -65,7 +67,7 @@ public static class Solver
 
                 // Console.WriteLine($"Possible words: {possibleSolutions.Count}");
 
-                guess = await guesser.Guess(possibleGuesses, possibleSolutions, reds, yellows);
+                guess = await guesser.Guess(possibleGuesses, possibleSolutions, reds, greens, yellows);
             }
         }
 
@@ -79,6 +81,7 @@ public static class Solver
         HashSet<string> possibleSolutions,
         IReadOnlyList<GuessResult> hint,
         HashSet<char> reds,
+        char[] greens,
         Dictionary<char, bool[]> yellows,
         bool updatePossibleGuesses = true)
     {
@@ -87,14 +90,14 @@ public static class Solver
 
         possibleSolutions.Remove(guess);
 
-        UpdateKnownsInplace(guess, hint, ref reds, ref yellows);
+        UpdateKnownsInplace(guess, hint, ref reds, ref greens, ref yellows);
 
-        possibleSolutions.FilterToPossibleWords(reds, yellows, false);
+        possibleSolutions.FilterToPossibleWords(reds, greens, yellows, false);
 
         // shouldn't need to filter guess list here, but it tends to give a better result
         if (updatePossibleGuesses)
         {
-            possibleGuesses.FilterToPossibleWords(reds, yellows, true);
+            possibleGuesses.FilterToPossibleWords(reds, greens, yellows, true);
         }
     }
 
@@ -102,6 +105,7 @@ public static class Solver
         string guess,
         IReadOnlyList<GuessResult> hint,
         ref HashSet<char> reds,
+        ref char[] greens,
         ref Dictionary<char, bool[]> yellows)
     {
         for (var i = 0; i < hint.Count; i++)
@@ -109,6 +113,11 @@ public static class Solver
             if (hint[i] == GuessResult.DoesNotExist)
             {
                 reds.Add(guess[i]);
+            }
+
+            if (hint[i] == GuessResult.Correct)
+            {
+                greens[i] = guess[i];
             }
 
             if (hint[i] == GuessResult.ExistsInDifferentSpot)
@@ -121,15 +130,17 @@ public static class Solver
     private static void FilterToPossibleWords(
         this HashSet<string> wordList,
         ISet<char> reds,
+        char[] greens,
         IReadOnlyDictionary<char, bool[]> yellows,
         bool excludeYellows)
     {
-        wordList.RemoveWhere(word => !IsWordPossible(word, reds, yellows, excludeYellows));
+        wordList.RemoveWhere(word => !IsWordPossible(word, reds, greens, yellows, excludeYellows));
     }
 
     public static bool IsWordPossible(
         string word,
         IEnumerable<char> reds,
+        char[] greens,
         IReadOnlyDictionary<char, bool[]> yellows,
         bool exludeYellows)
     {
@@ -138,7 +149,21 @@ public static class Solver
             return false;
         }
 
-        return !word.Where((letter, index) => exludeYellows && yellows[letter][index]).Any();
+        for (var index = 0; index < word.Length; index++)
+        {
+            var letter = word[index];
+            if (greens[index] != '-' && word[index] != greens[index])
+            {
+                return false;
+            }
+
+            if (exludeYellows && yellows[letter][index])
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static void PrintResult(this string guess, GuessResult[] hint, int wordsLeft)
@@ -182,16 +207,13 @@ public static class Solver
     }
 
     public static (GuessCombination combo, double wordsLeft) MinAverageSolutionsAfterThreeGuesses(
-        IEnumerable<string> possibleSolutions,
+        HashSet<string> possibleSolutions,
         List<GuessCombination> combinations,
-        string seedWord,
-        int solutionsToTry)
+        string seedWord)
     {
         var stopwatch = Stopwatch.StartNew();
 
-        var progress = Enumerable.Repeat(false, solutionsToTry).ToArray();
-
-        var possibleSolutionsToWorkOn = possibleSolutions.Take(solutionsToTry).ToList();
+        var progress = Enumerable.Repeat(false, possibleSolutions.Count).ToArray();
 
         // preallocate the dictionary to reduce key look up later on
         var guessesToWordsLeft = new Dictionary<GuessCombination, int>();
@@ -200,10 +222,10 @@ public static class Solver
             guessesToWordsLeft[combination] = 0;
         }
 
-        for (var index = 0; index < solutionsToTry; index++)
+        for (var index = 0; index < possibleSolutions.Count; index++)
         {
-            var word = possibleSolutionsToWorkOn[index];
-            var localPossibleSolutions = new HashSet<string>(possibleSolutionsToWorkOn);
+            var word = possibleSolutions.ElementAt(index);
+            var localPossibleSolutions = new HashSet<string>(possibleSolutions);
             var results = SolutionsAfterThreeGuesses(combinations, localPossibleSolutions, word, seedWord);
 
             foreach (var result in results)
@@ -215,7 +237,7 @@ public static class Solver
             if (index % 20 == 0)
             {
                 var timePerSolutionToTry = stopwatch.Elapsed / (index + 1);
-                var numRemaining = solutionsToTry - (index + 1);
+                var numRemaining = possibleSolutions.Count - (index + 1);
                 var timeRemaining = timePerSolutionToTry * numRemaining;
                 var minSoFar = MinAverageGuesses((index + 1), guessesToWordsLeft);
                 var minSoFarGueses = JsonSerializer.Serialize(minSoFar.guesses);
@@ -227,7 +249,7 @@ public static class Solver
             }
         }
 
-        return MinAverageGuesses(solutionsToTry, guessesToWordsLeft);
+        return MinAverageGuesses(possibleSolutions.Count, guessesToWordsLeft);
     }
 
     private static (GuessCombination guesses, double averageWordsLeft) MinAverageGuesses(
@@ -252,6 +274,7 @@ public static class Solver
     {
         // init knowns
         var reds = new HashSet<char>();
+        var greens =  Enumerable.Repeat('-', solution.Length).ToArray();
         var yellows = new Dictionary<char, bool[]>();
         for (var c = 'a'; c <= 'z'; c++)
         {
@@ -266,6 +289,7 @@ public static class Solver
             new HashSet<string>(),
             possibleSolutions,
             reds,
+            greens,
             yellows,
             updatePossibleGuesses: false);
 
@@ -276,6 +300,7 @@ public static class Solver
                 // copy knowns to local
                 var localPossibleSolutions = new HashSet<string>(possibleSolutions);
                 var localReds = new HashSet<char>(reds);
+                var localGreens = greens.ToArray();
                 var localYellows = new Dictionary<char, bool[]>(yellows);
 
                 var nonSeedWordGuesses = possibleGuessesCombination.PossibleGuesses
@@ -290,6 +315,7 @@ public static class Solver
                         new HashSet<string>(), // not needed
                         localPossibleSolutions,
                         localReds,
+                        localGreens,
                         localYellows,
                         updatePossibleGuesses: false);
                 }
@@ -305,6 +331,7 @@ public static class Solver
         HashSet<string> possibleGuesses,
         HashSet<string> possibleSolutions,
         HashSet<char> reds,
+        char[] greens,
         Dictionary<char, bool[]> yellows,
         bool updatePossibleGuesses = true)
     {
@@ -317,6 +344,7 @@ public static class Solver
             possibleSolutions,
             hint,
             reds,
+            greens,
             yellows,
             updatePossibleGuesses);
 

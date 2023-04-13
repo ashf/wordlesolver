@@ -8,6 +8,7 @@ public class MinMaxGuesser : Guesser
         HashSet<string> possibleGuesses,
         HashSet<string> possibleSolutions,
         IReadOnlySet<char> reds,
+        char[] greens,
         IReadOnlyDictionary<char, bool[]> yellows)
     {
         var semaphore = new Semaphore(0, 1);
@@ -33,8 +34,8 @@ public class MinMaxGuesser : Guesser
                     {
                         var hint = EvaluateGuess(guess, actual);
 
-                        var (newReds, newYellows) = UpdateKnowns(hint, guess, reds, yellows);
-                        var score = FilteredWordListSize(newReds, newYellows, possibleSolutions);
+                        var (newReds, newGreens, newYellows) = UpdateKnowns(hint, guess, reds, greens, yellows);
+                        var score = FilteredWordListSize(newReds, newGreens, newYellows, possibleSolutions);
                         if (score == 0)
                         {
                             score = possibleSolutions.Count;
@@ -78,25 +79,28 @@ public class MinMaxGuesser : Guesser
 
     private static int FilteredWordListSize(
         ISet<char> reds,
+        char[] greens,
         IReadOnlyDictionary<char, bool[]> yellows,
         IEnumerable<string> wordList)
     {
-        return wordList.Count(word => Solver.IsWordPossible(word, reds, yellows, true));
+        return wordList.Count(word => Solver.IsWordPossible(word, reds, greens, yellows, true));
     }
 
-    private static (HashSet<char> reds, IReadOnlyDictionary<char, bool[]> yellows) UpdateKnowns(
+    private static (HashSet<char> reds, char[] greens, IReadOnlyDictionary<char, bool[]> yellows) UpdateKnowns(
         IReadOnlyList<GuessResult> hint,
         string guess,
         IEnumerable<char> reds,
+        IEnumerable<char> greens,
         IReadOnlyDictionary<char, bool[]> yellows)
     {
         var newReds = new HashSet<char>(reds);
+        var newGreens = greens.ToArray();
         var newYellows = yellows.ToDictionary(x =>
             x.Key,
             x => x.Value.Clone() as bool[]);
 
-        Solver.UpdateKnownsInplace(guess, hint, ref newReds, ref newYellows!);
+        Solver.UpdateKnownsInplace(guess, hint, ref newReds, ref newGreens, ref newYellows!);
 
-        return (newReds, newYellows!);
+        return (newReds, newGreens, newYellows!);
     }
 }

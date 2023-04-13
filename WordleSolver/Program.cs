@@ -103,7 +103,7 @@ internal static class Program
 		Console.WriteLine($"guess #5: {allGuessResults[4].MostFrequent()}");
 	}
 
-	private static async Task OptimalStartingWords(string seedWord, HashSet<string> possibleGuesses, IReadOnlyCollection<string> possibleSolutions)
+	private static async Task OptimalStartingWords(string seedWord, HashSet<string> possibleGuesses, HashSet<string> possibleSolutions)
 	{
 		var combinationsFile = $"combinations/combinations_{seedWord}.txt";
 
@@ -134,10 +134,14 @@ internal static class Program
 		Console.WriteLine($"{combination.Count} combinations that have no shared letters");
 
 		var solutionsToTry = possibleSolutions.Count;
+		if (solutionsToTry != possibleSolutions.Count)
+		{
+			possibleSolutions = possibleSolutions.Take(solutionsToTry).ToHashSet();
+		}
 
 		var stopwatch = Stopwatch.StartNew();
 
-		var foo = Solver.MinAverageSolutionsAfterThreeGuesses(possibleSolutions, combination, seedWord, solutionsToTry);
+		var foo = Solver.MinAverageSolutionsAfterThreeGuesses(possibleSolutions, combination, seedWord);
 
 		var elapsed = stopwatch.Elapsed;
 
