@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
 using WordleSolver.Guessers;
 
@@ -33,7 +34,7 @@ public static class Solver
         // Guess until solved
         while (!solved)
         {
-            var hint = GuessAndUpdateState(
+            var guessResults = GuessAndUpdateState(
                 solution,
                 guess,
                 new List<string>(), // not needed
@@ -44,7 +45,7 @@ public static class Solver
                 yellows,
                 updatePossibleGuesses: false);
 
-            guess.PrintResult(hint, possibleSolutions.Count);
+            guess.PrintResult(guessResults, possibleSolutions.Count);
 
             if (guess == solution)
             {
@@ -74,12 +75,14 @@ public static class Solver
         return guesses;
     }
 
+    // Updates the state based on the guess and guessResults
+    // The state includes the knowns (reds, greens, yellows) and the possible solutions (and guesses)
     private static void UpdateState(
         string guess,
         ICollection<string> guesses,
         HashSet<string> possibleGuesses,
         HashSet<string> possibleSolutions,
-        IReadOnlyList<GuessResult> hint,
+        IReadOnlyList<GuessResult> guessResults,
         HashSet<char> reds,
         char[] greens,
         Dictionary<char, bool[]> yellows,
@@ -90,7 +93,7 @@ public static class Solver
 
         possibleSolutions.Remove(guess);
 
-        UpdateKnownsInplace(guess, hint, ref reds, ref greens, ref yellows);
+        UpdateKnownsInplace(guess, guessResults, ref reds, ref greens, ref yellows);
 
         possibleSolutions.FilterToPossibleWords(reds, greens, yellows, false);
 
@@ -101,32 +104,34 @@ public static class Solver
         }
     }
 
+    // Updates the knowns (reds, greens, yellows) based on the guess and guessResults
     public static void UpdateKnownsInplace(
         string guess,
-        IReadOnlyList<GuessResult> hint,
+        IReadOnlyList<GuessResult> guessResults,
         ref HashSet<char> reds,
         ref char[] greens,
         ref Dictionary<char, bool[]> yellows)
     {
-        for (var i = 0; i < hint.Count; i++)
+        for (var i = 0; i < guessResults.Count; i++)
         {
-            if (hint[i] == GuessResult.DoesNotExist)
+            if (guessResults[i] == GuessResult.DoesNotExist)
             {
                 reds.Add(guess[i]);
             }
 
-            if (hint[i] == GuessResult.Correct)
+            if (guessResults[i] == GuessResult.Correct)
             {
                 greens[i] = guess[i];
             }
 
-            if (hint[i] == GuessResult.ExistsInDifferentSpot)
+            if (guessResults[i] == GuessResult.ExistsInDifferentSpot)
             {
                 yellows[guess[i]][i] = true;
             }
         }
     }
 
+    // Removes words from the list that are not possible given the knowns (reds, greens, yellows)
     private static void FilterToPossibleWords(
         this HashSet<string> wordList,
         ISet<char> reds,
@@ -137,6 +142,7 @@ public static class Solver
         wordList.RemoveWhere(word => !IsWordPossible(word, reds, greens, yellows, excludeYellows));
     }
 
+    // Determines if a word is possible given the knowns (reds, greens, yellows)
     public static bool IsWordPossible(
         string word,
         IEnumerable<char> reds,
@@ -144,19 +150,24 @@ public static class Solver
         IReadOnlyDictionary<char, bool[]> yellows,
         bool exludeYellows)
     {
+        // if any of the letters are in the red list, it's not possible
         if (reds.Intersect(word).Any())
         {
             return false;
         }
 
+        // loop through each letter in the word
         for (var index = 0; index < word.Length; index++)
         {
             var letter = word[index];
+
+            // if the letter is in the green list, the letter must be in the same spot
             if (greens[index] != '-' && word[index] != greens[index])
             {
                 return false;
             }
 
+            // if the letter is in the yellow list, the letter must not be in the same spot
             if (exludeYellows && yellows[letter][index])
             {
                 return false;
@@ -166,16 +177,16 @@ public static class Solver
         return true;
     }
 
-    private static void PrintResult(this string guess, GuessResult[] hint, int wordsLeft)
+    private static void PrintResult(this string guess, GuessResult[] guessResults, int wordsLeft)
     {
         for (var index = 0; index < guess.Length; index++)
         {
-            var color = hint[index] switch
+            var color = guessResults[index] switch
             {
                 GuessResult.Correct => ConsoleColor.Green,
                 GuessResult.DoesNotExist => ConsoleColor.Red,
                 GuessResult.ExistsInDifferentSpot => ConsoleColor.Yellow,
-                _ => throw new ArgumentOutOfRangeException(nameof(hint), hint, null)
+                _ => throw new ArgumentOutOfRangeException(nameof(guessResults), guessResults, null)
             };
 
             Console.ForegroundColor = color;
@@ -189,15 +200,30 @@ public static class Solver
 
     private static void PrintProgress(IReadOnlyCollection<bool> progress, string additionalInfo)
     {
-        const int binCount = 20;
+        const int binCount = 30;
         var binSize = progress.Count < binCount
             ? progress.Count
-            : progress.Count / 20;
+            : progress.Count / binCount;
 
         var progressChunks = progress.Chunk(binSize);
         foreach (var chunk in progressChunks)
         {
-            var color = chunk.All(x => x) ? ConsoleColor.Green : ConsoleColor.Red;
+            var color = ConsoleColor.Red;
+            var count = chunk.Count(x => x);
+            if (count == chunk.Length)
+            {
+                color = ConsoleColor.Green;
+            }
+
+            else if (count != 0 && count < chunk.Length / 2)
+            {
+                color = ConsoleColor.DarkYellow;
+            }
+            else if (count > chunk.Length / 2)
+            {
+                color = ConsoleColor.Yellow;
+            }
+
             Console.ForegroundColor = color;
             Console.Write("█");
         }
@@ -214,47 +240,53 @@ public static class Solver
         var stopwatch = Stopwatch.StartNew();
 
         var progress = Enumerable.Repeat(false, possibleSolutions.Count).ToArray();
+        var finished = 0;
 
         // preallocate the dictionary to reduce key look up later on
-        var guessesToWordsLeft = new Dictionary<GuessCombination, int>();
+        var guessesToWordsLeft = new ConcurrentDictionary<GuessCombination, int>();
         foreach (var combination in combinations)
         {
             guessesToWordsLeft[combination] = 0;
         }
 
-        for (var index = 0; index < possibleSolutions.Count; index++)
+        // loop through each possible solution
+        // for each solution determine words left for each guess combination (and add it to the total)
+        Parallel.For((long)0, possibleSolutions.Count, index =>
         {
-            var word = possibleSolutions.ElementAt(index);
+            var word = possibleSolutions.ElementAt((int)index);
             var localPossibleSolutions = new HashSet<string>(possibleSolutions);
             var results = SolutionsAfterThreeGuesses(combinations, localPossibleSolutions, word, seedWord);
 
-            foreach (var result in results)
+            Parallel.ForEach(results, result =>
             {
                 guessesToWordsLeft[result.guesses] += result.wordsLeft;
-            }
+            });
 
             progress[index] = true;
-            if (index % 20 == 0)
+            Interlocked.Increment(ref finished);
+            if (finished % 50 == 0)
             {
-                var timePerSolutionToTry = stopwatch.Elapsed / (index + 1);
-                var numRemaining = possibleSolutions.Count - (index + 1);
+                var timePerSolutionToTry = stopwatch.Elapsed / finished;
+                var numRemaining = possibleSolutions.Count - finished;
                 var timeRemaining = timePerSolutionToTry * numRemaining;
-                var minSoFar = MinAverageGuesses((index + 1), guessesToWordsLeft);
+                var minSoFar = MinAverageGuesses(finished, guessesToWordsLeft);
                 var minSoFarGueses = JsonSerializer.Serialize(minSoFar.guesses);
 
                 var additionalInfo =
-                    $"Min so far: {minSoFarGueses} w/ {minSoFar.averageWordsLeft} avg words left | Time elapsed: {stopwatch.Elapsed} | Est time remaining: {timeRemaining}";
+                    $"Min so far: {minSoFarGueses} w/ {minSoFar.averageWordsLeft:f2} avg words left | Time elapsed: {stopwatch.Elapsed} | Est time remaining: {timeRemaining}";
 
                 PrintProgress(progress, additionalInfo);
             }
-        }
+        });
 
+        // based on toal number of solutions tried, determine the average number of words left for each guess combination
         return MinAverageGuesses(possibleSolutions.Count, guessesToWordsLeft);
     }
 
+    // Returns the guess combination that has the lowest average number of words left (based on the number of solutions tried)
     private static (GuessCombination guesses, double averageWordsLeft) MinAverageGuesses(
-        int solutionsToTry,
-        Dictionary<GuessCombination,int> guessesToWordsLeft)
+        long solutionsToTry,
+        ConcurrentDictionary<GuessCombination,int> guessesToWordsLeft)
     {
         var kvp = guessesToWordsLeft
             .Where(kvp => kvp.Value != 0)
@@ -266,6 +298,8 @@ public static class Solver
         return (kvp.Key, kvp.Value);
     }
 
+    // Given a solution and the possible solutions available,
+    // determine how many solutions would be left for each supplied guess combination
     private static IEnumerable<(GuessCombination guesses, int wordsLeft)> SolutionsAfterThreeGuesses(
         IEnumerable<GuessCombination> possibleGuessesCombinations,
         HashSet<string> possibleSolutions,
@@ -293,8 +327,8 @@ public static class Solver
             yellows,
             updatePossibleGuesses: false);
 
+        // parallel process each guess combination
         return possibleGuessesCombinations
-            .AsParallel()
             .Select(possibleGuessesCombination =>
             {
                 // copy knowns to local
@@ -303,9 +337,11 @@ public static class Solver
                 var localGreens = greens.ToArray();
                 var localYellows = new Dictionary<char, bool[]>(yellows);
 
+                // we've already processed the seedWord (since every combo has it) so skip it
                 var nonSeedWordGuesses = possibleGuessesCombination.PossibleGuesses
                     .Where(guess => guess != seedWord);
 
+                // process the guess and update the sate for each non seedword guess
                 foreach (var guess in nonSeedWordGuesses)
                 {
                     GuessAndUpdateState(
@@ -335,19 +371,20 @@ public static class Solver
         Dictionary<char, bool[]> yellows,
         bool updatePossibleGuesses = true)
     {
-        var hint = Guesser.EvaluateGuess(guess, solution);
+        // evaluate the guess
+        var guessResults = Guesser.EvaluateGuess(guess, solution);
 
         UpdateState(
             guess,
             guesses,
             possibleGuesses,
             possibleSolutions,
-            hint,
+            guessResults,
             reds,
             greens,
             yellows,
             updatePossibleGuesses);
 
-        return hint;
+        return guessResults;
     }
 }

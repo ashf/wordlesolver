@@ -8,16 +8,19 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Update="wordlewords.txt">
+    <None Update="wordlewords_guesses.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="wordlewords_edited.txt">
+    <None Update="wordlewords_solutions.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="words.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="quordlewords.txt">
+    <None Update="quordlewords_guesses.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="quordlewords_solutions.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

@@ -6,12 +6,10 @@ namespace WordleSolver;
 
 internal static class Program
 {
-	// private const string PossibleGuessesFileName = "wordlewords_edited.txt";
-	private const string PossibleGuessesFileName = "quordlewords.txt";
-	// private const string PossibleGuessesFileName = "wordlewords.txt";
-	// private const string PossibleSolutionsFileName = "wordlewords_edited.txt";
-	private const string PossibleSolutionsFileName = "quordlewords.txt";
-	// private const string PossibleSolutionsFileName = "wordlewords.txt";
+	// private const string PossibleGuessesFileName = "wordlewords_guesses.txt";
+	// private const string PossibleSolutionsFileName = "wordlewords_solutions.txt";
+	private const string PossibleGuessesFileName = "quordlewords_guesses.txt";
+	private const string PossibleSolutionsFileName = "quordlewords_solutions.txt";
 
 	private const int WordLength = 5;
 
@@ -37,9 +35,6 @@ internal static class Program
 			Console.WriteLine($"seedword: {seedword}");
 			await OptimalStartingWords(seedword, possibleGuesses, possibleSolutions);
 		}
-
-		await OptimalStartingWords("roate", possibleGuesses, possibleSolutions);
-		await OptimalStartingWords("salet", possibleGuesses, possibleSolutions);
 	}
 
 	private static HashSet<string> LoadWordsFromFile(
