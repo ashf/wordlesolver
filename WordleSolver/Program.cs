@@ -15,12 +15,29 @@ internal static class Program
 
 	private const int WordLength = 5;
 
-	private static async Task Main()
+	private static async Task Main(string[] args)
 	{
 		var possibleGuesses = LoadWordsFromFile(PossibleGuessesFileName, WordLength);
 		var possibleSolutions = LoadWordsFromFile(PossibleSolutionsFileName, WordLength);
 
 		// await MultipleGames(possibleGuesses, possibleSolutions);
+
+		if (args is {Length: > 0})
+		{
+			var seedWords = args[0].Split(',');
+			Console.WriteLine($"seedwords: {args[0]}");
+			foreach (var seedWord in seedWords)
+			{
+				await OptimalStartingWords(seedWord, possibleGuesses, possibleSolutions);
+			}
+		}
+		else
+		{
+			const string seedword = "roate";
+			Console.WriteLine($"seedword: {seedword}");
+			await OptimalStartingWords(seedword, possibleGuesses, possibleSolutions);
+		}
+
 		await OptimalStartingWords("roate", possibleGuesses, possibleSolutions);
 		await OptimalStartingWords("salet", possibleGuesses, possibleSolutions);
 	}
